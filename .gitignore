@@ -139,6 +139,3 @@ cython_debug/
 
 # Visual Studio Code files
 .vscode/
-
-# Ignore models
-step/object_detection/models/
