@@ -10,6 +10,7 @@ from PIL import Image
 import tensorflow as tf
 from object_detection.utils import label_map_util
 
+import time
 
 def build_argument_parser():
     parser = argparse.ArgumentParser(allow_abbrev=False)
@@ -67,15 +68,8 @@ if __name__ == "__main__":
 
     select_input = os.getenv("SQLFLOW_TO_RUN_SELECT")
     output = os.getenv("SQLFLOW_TO_RUN_INTO")
-    #output_tables = output.split(',')
-    datasource = os.getenv("SQLFLOW_DATASOURCE")
-
-    #Only to debug
-    select_input = "SELECT * FROM voc_result10"
-    output = "INTO voc.voc_result5;"
     output_tables = output.split(',')
-    datasource = "mysql://root:root@tcp(127.0.0.1:3306)/?maxAllowedPacket=0"
-    args.dataset = "voc"
+    datasource = os.getenv("SQLFLOW_DATASOURCE")
 
     assert len(output_tables) == 1, "The output tables shouldn't be null and can contain only one."
 
@@ -88,18 +82,15 @@ if __name__ == "__main__":
         sql=select_input,
         con=engine)
     input_md.execute()
+    print(input_md)
 
-    image_dir = os.path.abspath('../datasets/voc_simple/test/JPEGImages')
-    print(image_dir)
+    image_dir = os.path.abspath('/opt/sqlflow/datasets/voc_simple/test/JPEGImages')
     input_md['filename'] = image_dir + "/" + input_md['filename'].astype(str)
 
     tf.keras.backend.clear_session()
     print('Building model and restoring weights for fine-tuning...', flush=True)
-    path_to_saved_model = os.path.abspath('object_detection/models/ssd_resnet50_v1_fpn_640x640_coco17_tpu-8/saved_model')
-    path_to_labels = os.path.abspath('object_detection/labels/mscoco_label_map.pbtxt')
-
-    print(path_to_saved_model)
-    print(path_to_labels)
+    path_to_saved_model = os.path.abspath('/opt/sqlflow/run/object_detection/models/ssd_resnet50_v1_fpn_640x640_coco17_tpu-8/saved_model')
+    path_to_labels = os.path.abspath('/opt/sqlflow/run/object_detection/labels/mscoco_label_map.pbtxt')
 
     # Load saved model and build the detection function
     detect_fn = tf.saved_model.load(path_to_saved_model)
