@@ -9,8 +9,6 @@ import numpy as np
 from PIL import Image
 import tensorflow as tf
 import torch
-from pathlib import Path
-import json
 import numpy as np
 
 import time
