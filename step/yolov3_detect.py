@@ -5,13 +5,8 @@ import pandas as pd
 from run_io.db_adapter import convertDSNToRfc1738
 from sqlalchemy import create_engine
 
-import numpy as np
-from PIL import Image
-import tensorflow as tf
 import torch
 import numpy as np
-
-import time
 
 def build_argument_parser():
 	parser = argparse.ArgumentParser(allow_abbrev=False)
@@ -19,33 +14,6 @@ def build_argument_parser():
 	parser.add_argument("--latency", type=float,required=False)
 	parser.add_argument("--lag", type=int, required=False)
 	return parser
-
-# Inference
-def detect(model,image_path,latency,lag,count,names=[]):
-
-	# Images 
-	img = Image.open(image_path)
-	prediction = model(img, size=640)  # includes NMS'
-	pred = prediction.pred[0]
-	img = prediction.imgs[0]
-
-	ans = {}
-	if pred is not None:
-		gn = torch.tensor(img.shape)[[1, 0, 1, 0]]  # normalization gain whwh
-		time.sleep(latency)
-
-		# Save results into files in the format of: class_index x y w h
-		for *xyxy, conf, cls in reversed(pred):
-			count += 1
-			if count % lag == 0:
-				cls = np.random.sample(names)
-			# record the biggest confidence
-			if cls not in ans.keys():
-				ans[cls] = conf
-			else:
-				ans[cls] = max(conf,ans[cls])
-	return ans
-
 
 def inference():
 	parser = build_argument_parser()
@@ -78,9 +46,9 @@ def inference():
 	input_md.execute()
 	print(input_md)
 
-	#Leave it, path changes for the container
+	#Leave it, path changes depending if we are debuging or not
 	#image_dir = os.path.abspath('/opt/sqlflow/datasets/voc_simple/test/JPEGImages')
-	image_dir = os.path.abspath('./datasets/voc_simple/test/JPEGImages')
+	image_dir = os.path.abspath('../datasets/voc_simple/test/JPEGImages')
 	input_md['filename'] = image_dir + "/" + input_md['filename'].astype(str)
 
 	categories = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', \
@@ -98,22 +66,22 @@ def inference():
 		columns = ['image_id','filename'] + categories
 	).fillna(0).to_pandas()
 
-	count = 0
 	# Model
-	model = torch.hub.load('ultralytics/yolov3', opt.base, pretrained=True).autoshape()  # for PIL/cv2/np inputs and NMS
+	model = torch.hub.load('ultralytics/yolov3', 'yolov3')
 
-	# model inference
-	for row in result_df.itertuples():
-		detected_objects = detect(model,row.filename,latency=args.latency,lag=args.lag,names=categories)
-		for k,v in detected_objects.items():
-			result_df.loc[row.Index, k] = v
+	# Images
+	imgs = result_df['filename'].tolist()
 
-	print("Persist the statement into the table {}".format(output_tables[0]))
-	result_table = result_df.to_sql(
-		name=output_tables[0],
-		con=engine,
-		index=False
-	)
+	# Inference for first 5 images
+	results = model(imgs[:5])
+	results.print()
+	result_list = results.pandas().xyxy[:]
+	
+	#Iterate to collect confidence and class_names
+	for value in result_list:
+   		print(value, end='')
+	
+
 
 if __name__ == "__main__":
 	'''
