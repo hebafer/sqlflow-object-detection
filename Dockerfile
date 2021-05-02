@@ -14,3 +14,5 @@ ADD /step /opt/sqlflow/run
 ENV PYTHONPATH "${PYTHONPATH}:/opt/sqlflow/run"
 
 WORKDIR /opt/sqlflow/run
+
+RUN python yolov3_detect.py

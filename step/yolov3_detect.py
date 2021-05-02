@@ -8,14 +8,13 @@ from sqlalchemy import create_engine
 import torch
 import numpy as np
 
+
 def build_argument_parser():
 	parser = argparse.ArgumentParser(allow_abbrev=False)
 	parser.add_argument("--dataset", type=str, required=False)
-	parser.add_argument("--latency", type=float,required=False)
-	parser.add_argument("--lag", type=int, required=False)
 	return parser
 
-def inference():
+if __name__ == "__main__":
 	parser = build_argument_parser()
 	args, _ = parser.parse_known_args()
 
@@ -29,11 +28,11 @@ def inference():
 	#Only to debug
 	# First, run on your terminal:
 	# docker run --name=sqlflow-mysql --rm -d -p 3306:3306 hebafer/sqlflow-mysql:1.0.0
-	select_input = "SELECT * FROM voc.annotations"
-	output = "INTO voc.result;"
+	select_input = "SELECT * FROM coco.images LIMIT 3"
+	output = "INTO coco.result;"
 	output_tables = output.split(',')
 	datasource = "mysql://root:root@tcp(127.0.0.1:3306)/?maxAllowedPacket=0"
-	args.dataset = "voc"
+	args.dataset = "coco"
 
 	print("Connecting to database...")
 	url = convertDSNToRfc1738(datasource, args.dataset)
@@ -48,52 +47,44 @@ def inference():
 
 	#Leave it, path changes depending if we are debuging or not
 	#image_dir = os.path.abspath('/opt/sqlflow/datasets/voc_simple/test/JPEGImages')
-	image_dir = os.path.abspath('../datasets/voc_simple/test/JPEGImages')
-	input_md['filename'] = image_dir + "/" + input_md['filename'].astype(str)
+	image_dir = os.path.abspath('../datasets/coco/test/test2017')
+	input_md['file_name'] = image_dir + "/" + input_md['file_name'].astype(str)
 
-	categories = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', \
-			'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench', \
-			'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', \
-			'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', \
-			'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', \
-			'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', \
-			'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', \
-			'donut', 'cake', 'chair', 'couch', 'potted plant', 'bed', 'dining table', 'toilet', \
-			'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven', \
-			'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair dryer','toothbrush']
+	categories = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck',
+               'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench',
+               'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe',
+               'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard',
+               'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard',
+               'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl',
+               'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza',
+               'donut', 'cake', 'chair', 'couch', 'potted plant', 'bed', 'dining table', 'toilet',
+               'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven',
+               'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair dryer', 'toothbrush']
 
 	result_df = input_md.reindex(
-		columns = ['image_id','filename'] + categories
+		columns=['id', 'file_name'] + categories
 	).fillna(0).to_pandas()
 
-	# Model
+	# Collect Model
 	model = torch.hub.load('ultralytics/yolov3', 'yolov3')
 
-	# Images
-	imgs = result_df['filename'].tolist()
+	# Retrieve Images
+	imgs = result_df['file_name'].tolist()
 
-	# Inference for first 5 images
-	results = model(imgs[:5])
-	results.print()
+	# Inference on all the images
+	results = model(imgs[:])
 	result_list = results.pandas().xyxy[:]
-	
+
 	#Iterate to collect confidence and class_names
-	for value in result_list:
-   		print(value, end='')
-	
+	for i, value in enumerate(result_list):
+		value = value.groupby(["name"], as_index=False).max()
+		dict = pd.Series(value.confidence.values, index=value.name).to_dict()
+		for k, v in dict.items():
+			result_df.loc[i, k] = v
 
-
-if __name__ == "__main__":
-	'''
-	Command:
-	%%sqlflow
-	DROP TABLE IF EXISTS voc.result;
-	SELECT * FROM voc.annotations
-	TO RUN hebafer/object-detection:latest
-	CMD "yolov3_detect.py",
-	    "--dataset=voc",
-	    "--latency=0.05",
-	    "--lag=100"
-	INTO result;
-	'''
-inference()
+	print("Persist the statement into the table {}".format(output_tables[0]))
+	result_table = result_df.to_sql(
+		name=output_tables[0],
+		con=engine,
+		index=False
+	)
