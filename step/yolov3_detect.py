@@ -20,19 +20,23 @@ if __name__ == "__main__":
 
 	select_input = os.getenv("SQLFLOW_TO_RUN_SELECT")
 	output = os.getenv("SQLFLOW_TO_RUN_INTO")
-	#output_tables = output.split(',')
+	output_tables = output.split(',')
 	datasource = os.getenv("SQLFLOW_DATASOURCE")
 
-	#assert len(output_tables) == 1, "The output tables shouldn't be null and can contain only one."
+	assert len(output_tables) == 1, "The output tables shouldn't be null and can contain only one."
 
 	#Only to debug
 	# First, run on your terminal:
 	# docker run --name=sqlflow-mysql --rm -d -p 3306:3306 hebafer/sqlflow-mysql:1.0.0
-	select_input = "SELECT * FROM coco.images LIMIT 3"
-	output = "INTO coco.result;"
-	output_tables = output.split(',')
-	datasource = "mysql://root:root@tcp(127.0.0.1:3306)/?maxAllowedPacket=0"
-	args.dataset = "coco"
+	# select_input = """
+    #                 SELECT * FROM coco.`images`
+    #                 ORDER BY `images`.`id`  ASC
+    #                 LIMIT 150
+    #                 """
+	# output = "INTO result;"
+	# output_tables = output.split(',')
+	# datasource = "mysql://root:root@tcp(127.0.0.1:3306)/?maxAllowedPacket=0"
+	# args.dataset = "coco"
 
 	print("Connecting to database...")
 	url = convertDSNToRfc1738(datasource, args.dataset)
@@ -45,9 +49,7 @@ if __name__ == "__main__":
 	input_md.execute()
 	print(input_md)
 
-	#Leave it, path changes depending if we are debuging or not
-	#image_dir = os.path.abspath('/opt/sqlflow/datasets/voc_simple/test/JPEGImages')
-	image_dir = os.path.abspath('../datasets/coco/test/test2017')
+	image_dir = os.path.abspath('/opt/sqlflow/datasets/coco/test/test2017')
 	input_md['file_name'] = image_dir + "/" + input_md['file_name'].astype(str)
 
 	categories = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck',
@@ -66,7 +68,7 @@ if __name__ == "__main__":
 	).fillna(0).to_pandas()
 
 	# Collect Model
-	model = torch.hub.load('ultralytics/yolov3', 'yolov3')
+	model = torch.hub.load('ultralytics/yolov3', 'yolov3', verbose=False)
 
 	# Retrieve Images
 	imgs = result_df['file_name'].tolist()
@@ -88,3 +90,4 @@ if __name__ == "__main__":
 		con=engine,
 		index=False
 	)
+	print(result_table)
