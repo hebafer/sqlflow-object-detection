@@ -57,14 +57,19 @@ def inference():
 	parser = build_argument_parser()
     args, _ = parser.parse_known_args()
 
-    # print(args.tasks)
-
-    select_input = os.getenv("SQLFLOW_TO_RUN_SELECT")
-    output = os.getenv("SQLFLOW_TO_RUN_INTO")
-    output_tables = output.split(',')
-    datasource = os.getenv("SQLFLOW_DATASOURCE")
-
-    assert len(output_tables) == 1, "The output tables shouldn't be null and can contain only one."
+    print(args.tasks)
+	
+	# First, run on your terminal:
+	# docker run --name=sqlflow-mysql --rm -d -p 3306:3306 hebafer/sqlflow-mysql:1.0.0
+	select_input = """
+				SELECT * FROM coco.images
+				ORDER BY images.id  ASC
+				LIMIT 5
+				"""
+	output = "result"
+	output_tables = output.split(',')
+	datasource = "mysql://root:root@tcp(127.0.0.1:3306)/?maxAllowedPacket=0"
+	args.dataset = "coco"
 
 	print("Connecting to database...")
 	url = convertDSNToRfc1738(datasource, args.dataset)
