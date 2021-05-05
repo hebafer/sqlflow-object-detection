@@ -142,6 +142,3 @@ cython_debug/
 
 # Visual Studio Code files
 .vscode/
-
-# Datasets
-datasets/
