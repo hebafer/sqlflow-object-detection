@@ -2,24 +2,21 @@ import os
 import argparse
 import mars.dataframe as md
 import pandas as pd
-import MySQLdb
 from run_io.db_adapter import convertDSNToRfc1738
 from sqlalchemy import create_engine
 
 import numpy as np
 from PIL import Image
 import torch
-import numpy as np
-
 import time
 
 def build_argument_parser():
 	parser = argparse.ArgumentParser(allow_abbrev=False)
-	parser.add_argument("--dataset", type=str, required=False)
+	parser.add_argument("--dataset", type=str, required=False, default='coco')
 	parser.add_argument("--model", type=str, required=False,default='yolov3')
-	parser.add_argument("--latency", type=float,required=False)
-	parser.add_argument("--lag", type=int, required=False)
-	parser.add_argument("--tasks", type=str,required=False)
+	parser.add_argument("--latency", type=float,required=True)
+	parser.add_argument("--lag", type=int, required=True)
+	parser.add_argument("--tasks", type=str,required=True)
 	return parser
 
 # Inference
@@ -50,40 +47,21 @@ def detect(model,image_path,tasks,latency,lag,count=0,names=[]):
 					ans[names[cls]] = max(conf.item(),ans[names[cls]])
 	return count,ans
 
-
 def inference():
 	parser = build_argument_parser()
 	args, _ = parser.parse_known_args()
 	args.tasks = [int(t) for t in args.tasks.split(',')]
-	
-	# First, run on your terminal:
-	# docker run --name=sqlflow-mysql --rm -d -p 3306:3306 hebafer/sqlflow-mysql:1.0.0
-	select_input = """
-				SELECT * FROM coco.images
-				ORDER BY images.id  ASC
-				LIMIT 100
-				"""
-	output = "result"
+
+	select_input = os.getenv("SQLFLOW_TO_RUN_SELECT")
+	output = os.getenv("SQLFLOW_TO_RUN_INTO")
 	output_tables = output.split(',')
-	datasource = "mysql://root:root@tcp(127.0.0.1:3306)/?maxAllowedPacket=0"
-	args.dataset = "coco"
+	datasource = os.getenv("SQLFLOW_DATASOURCE")
+
+	assert len(output_tables) == 1, "The output tables shouldn't be null and can contain only one."
 
 	print("Connecting to database...")
 	url = convertDSNToRfc1738(datasource, args.dataset)
 	engine = create_engine(url)
-
-	# Delete table if exists
-	db = MySQLdb.connect(
-		host="0.0.0.0",
-		port=3306,
-		user="root",
-		password="root",
-		database="coco"
-	)
-	cursor = db.cursor()
-	sql = "DROP TABLE IF EXISTS result;"
-	cursor.execute(sql)
-	db.commit()
 
 	print("Printing result from SELECT statement as DataFrame...")
 	input_md = md.read_sql(
@@ -92,11 +70,8 @@ def inference():
 	input_md.execute()
 	print(input_md)
 
-	image_dir = os.path.abspath('../datasets/coco/test/test2017')
+	image_dir = os.path.abspath('/opt/sqlflow/datasets/coco/test/test2017')
 	input_md['file_name'] = image_dir + "/" + input_md['file_name'].astype(str)
-
-	# image_dir = os.path.abspath('/opt/sqlflow/datasets/voc_simple/test/JPEGImages')
-	# input_md['file_name'] = image_dir + "/" + input_md['file_name'].astype(str)
 
 	categories = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', \
 			'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench', \
@@ -144,7 +119,7 @@ if __name__ == "__main__":
 	    "--model=yolov3"
 	    "--latency=0.05",
 	    "--lag=100",
-	    "--tasks=1,2,3,4"
+	    "--tasks=1,2,3,4,5"
 	INTO result;
 	'''
 	inference()
