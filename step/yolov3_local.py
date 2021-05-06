@@ -8,7 +8,6 @@ from sqlalchemy import create_engine
 
 import numpy as np
 from PIL import Image
-import tensorflow as tf
 import torch
 import numpy as np
 
@@ -26,7 +25,8 @@ def build_argument_parser():
 # Inference
 def detect(model,image_path,tasks,latency,lag,count=0,names=[]):
 
-	# Images 
+	# Images
+	print("Image path is {}".format(image_path))
 	img = Image.open(image_path)
 
 	prediction = model(img, size=640)  # includes NMS'
@@ -68,7 +68,7 @@ def inference():
 				"""
 	output = "result"
 	output_tables = output.split(',')
-	datasource = "mysql://root:root@tcp(127.0.0.1:13306)/?maxAllowedPacket=0"
+	datasource = "mysql://root:root@tcp(127.0.0.1:3306)/?maxAllowedPacket=0"
 	args.dataset = "coco"
 
 	print("Connecting to database...")
@@ -78,7 +78,7 @@ def inference():
 	# Delete table if exists
 	db = MySQLdb.connect(
 		host="0.0.0.0",
-		port=13306,
+		port=3306,
 		user="root",
 		password="root",
 		database="coco"
