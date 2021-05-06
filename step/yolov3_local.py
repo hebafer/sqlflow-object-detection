@@ -6,30 +6,16 @@ import MySQLdb
 from run_io.db_adapter import convertDSNToRfc1738
 from sqlalchemy import create_engine
 
-<<<<<<< HEAD
-import torch
-import numpy as np
-
-=======
 import numpy as np
 from PIL import Image
 import torch
 import numpy as np
 
 import time
->>>>>>> origin/pytorch/yolov3_variants
 
 def build_argument_parser():
 	parser = argparse.ArgumentParser(allow_abbrev=False)
 	parser.add_argument("--dataset", type=str, required=False)
-<<<<<<< HEAD
-	return parser
-
-
-if __name__ == "__main__":
-	parser = build_argument_parser()
-	args, _ = parser.parse_known_args()
-=======
 	parser.add_argument("--model", type=str, required=False,default='yolov3')
 	parser.add_argument("--latency", type=float,required=False)
 	parser.add_argument("--lag", type=int, required=False)
@@ -69,18 +55,13 @@ def inference():
 	parser = build_argument_parser()
 	args, _ = parser.parse_known_args()
 	args.tasks = [int(t) for t in args.tasks.split(',')]
->>>>>>> origin/pytorch/yolov3_variants
 	
 	# First, run on your terminal:
 	# docker run --name=sqlflow-mysql --rm -d -p 3306:3306 hebafer/sqlflow-mysql:1.0.0
 	select_input = """
 				SELECT * FROM coco.images
 				ORDER BY images.id  ASC
-<<<<<<< HEAD
-				LIMIT 5
-=======
 				LIMIT 100
->>>>>>> origin/pytorch/yolov3_variants
 				"""
 	output = "result"
 	output_tables = output.split(',')
@@ -94,10 +75,7 @@ def inference():
 	# Delete table if exists
 	db = MySQLdb.connect(
 		host="0.0.0.0",
-<<<<<<< HEAD
-=======
 		port=3306,
->>>>>>> origin/pytorch/yolov3_variants
 		user="root",
 		password="root",
 		database="coco"
@@ -117,41 +95,6 @@ def inference():
 	image_dir = os.path.abspath('../datasets/coco/test/test2017')
 	input_md['file_name'] = image_dir + "/" + input_md['file_name'].astype(str)
 
-<<<<<<< HEAD
-	categories = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck',
-				'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench',
-				'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe',
-				'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard',
-				'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard',
-				'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl',
-				'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza',
-				'donut', 'cake', 'chair', 'couch', 'potted plant', 'bed', 'dining table', 'toilet',
-				'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven',
-				'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair dryer', 'toothbrush']
-
-	result_df = input_md.reindex(
-		columns=['id', 'file_name'] + categories
-	).fillna(0).to_pandas()
-
-	# Collect Model
-	model = torch.hub.load('ultralytics/yolov3', 'yolov3', verbose=False)
-
-	# Retrieve Images
-	imgs = result_df['file_name'].tolist()
-
-	# Inference on all the images
-	results = model(imgs[:])
-	result_list = results.pandas().xyxy[:]
-
-	# Iterate to collect confidence and class_names
-	for i, value in enumerate(result_list):
-		value = value.groupby(["name"], as_index=False).max()
-		dict = pd.Series(value.confidence.values, index=value.name).to_dict()
-		for k, v in dict.items():
-			result_df.loc[i, k] = v
-
-	print(result_df)
-=======
 	# image_dir = os.path.abspath('/opt/sqlflow/datasets/voc_simple/test/JPEGImages')
 	# input_md['file_name'] = image_dir + "/" + input_md['file_name'].astype(str)
 
@@ -182,15 +125,12 @@ def inference():
 		for k,v in detected_objects.items():
 			result_df.loc[row.Index, k] = v
 
->>>>>>> origin/pytorch/yolov3_variants
 	print("Persist the statement into the table {}".format(output_tables[0]))
 	result_table = result_df.to_sql(
 		name=output_tables[0],
 		con=engine,
 		index=False
 	)
-<<<<<<< HEAD
-=======
 
 if __name__ == "__main__":
 	'''
@@ -208,4 +148,3 @@ if __name__ == "__main__":
 	INTO result;
 	'''
 	inference()
->>>>>>> origin/pytorch/yolov3_variants
