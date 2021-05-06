@@ -26,7 +26,6 @@ def build_argument_parser():
 def detect(model,image_path,tasks,latency,lag,count=0,names=[]):
 
 	# Images
-	print("Image path is {}".format(image_path))
 	img = Image.open(image_path)
 
 	prediction = model(img, size=640)  # includes NMS'
@@ -55,8 +54,6 @@ def detect(model,image_path,tasks,latency,lag,count=0,names=[]):
 def inference():
 	parser = build_argument_parser()
 	args, _ = parser.parse_known_args()
-
-	# print(args)
 	args.tasks = [int(t) for t in args.tasks.split(',')]
 	
 	# First, run on your terminal:
@@ -64,7 +61,7 @@ def inference():
 	select_input = """
 				SELECT * FROM coco.images
 				ORDER BY images.id  ASC
-				LIMIT 5
+				LIMIT 100
 				"""
 	output = "result"
 	output_tables = output.split(',')
@@ -124,7 +121,6 @@ def inference():
 	# model inference
 	for row in result_df.itertuples():
 		count,detected_objects = detect(model,row.file_name,tasks=args.tasks,latency=args.latency,lag=args.lag,count=count,names=categories)
-		print(detected_objects)
 
 		for k,v in detected_objects.items():
 			result_df.loc[row.Index, k] = v
