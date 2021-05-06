@@ -5,23 +5,22 @@ import pandas as pd
 from run_io.db_adapter import convertDSNToRfc1738
 from sqlalchemy import create_engine
 
-import numpy as np
-from PIL import Image
-import tensorflow as tf
 import torch
 import numpy as np
 
-import time
 
 def build_argument_parser():
+<<<<<<< HEAD
     parser = argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument("--dataset", type=str, required=False)
+    parser.add_argument("--model", type=str, required=False,default='yolov3')
     parser.add_argument("--latency", type=float,required=False)
     parser.add_argument("--lag", type=int, required=False)
+    parser.add_argument("--tasks", type=int, nargs='+',required=False)
     return parser
 
 # Inference
-def detect(model,image_path,latency,lag,count,names=[]):
+def detect(model,image_path,tasks,latency,lag,count,names=[]):
 
 	# Images 
 	img = Image.open(image_path)
@@ -37,19 +36,25 @@ def detect(model,image_path,latency,lag,count,names=[]):
 		# Save results into files in the format of: class_index x y w h
 		for *xyxy, conf, cls in reversed(pred):
 			count += 1
-			if count % lag == 0:
-				cls = np.random.sample(names)
-			# record the biggest confidence
-			if cls not in ans.keys():
-				ans[cls] = conf
-			else:
-				ans[cls] = max(conf,ans[cls])
+
+			if cls in tasks:
+				continue
+
+				if count % lag == 0:
+					cls = np.random.sample(names)
+
+				if cls not in ans.keys():
+					ans[names[cls]] = conf
+				else:
+					ans[names[cls]] = max(conf,ans[names[cls]])
 	return ans
 
 
 def inference():
 	parser = build_argument_parser()
     args, _ = parser.parse_known_args()
+
+    # print(args.tasks)
 
     select_input = os.getenv("SQLFLOW_TO_RUN_SELECT")
     output = os.getenv("SQLFLOW_TO_RUN_INTO")
@@ -58,16 +63,31 @@ def inference():
 
     assert len(output_tables) == 1, "The output tables shouldn't be null and can contain only one."
 
-    print("Connecting to database...")
-    url = convertDSNToRfc1738(datasource, args.dataset)
-    engine = create_engine(url)
+	print("Connecting to database...")
+	url = convertDSNToRfc1738(datasource, args.dataset)
+	engine = create_engine(url)
 
-    print("Printing result from SELECT statement as DataFrame...")
-    input_md = md.read_sql(
-        sql=select_input,
-        con=engine)
-    input_md.execute()
-    print(input_md)
+	# Delete table if exists
+	db = MySQLdb.connect(
+		host="0.0.0.0",
+		user="root",
+		password="root",
+		database="coco"
+	)
+	cursor = db.cursor()
+	sql = "DROP TABLE IF EXISTS result;"
+	cursor.execute(sql)
+	db.commit()
+
+	print("Printing result from SELECT statement as DataFrame...")
+	input_md = md.read_sql(
+		sql=select_input,
+		con=engine)
+	input_md.execute()
+	print(input_md)
+
+	image_dir = os.path.abspath('../datasets/coco/test/test2017')
+	input_md['file_name'] = image_dir + "/" + input_md['file_name'].astype(str)
 
     image_dir = os.path.abspath('/opt/sqlflow/datasets/voc_simple/test/JPEGImages')
     input_md['filename'] = image_dir + "/" + input_md['filename'].astype(str)
@@ -90,11 +110,11 @@ def inference():
 
     count = 0
     # Model
-	model = torch.hub.load('ultralytics/yolov3', opt.base, pretrained=True).autoshape()  # for PIL/cv2/np inputs and NMS
+	model = torch.hub.load('ultralytics/yolov3', args.model, pretrained=True).autoshape()  # for PIL/cv2/np inputs and NMS
     
     # model inference
     for row in result_df.itertuples():
-        detected_objects = detect(model,row.filename,latency=args.latency,lag=args.lag,names=categories)
+        detected_objects = detect(model,row.filename,tasks=args.tasks,latency=args.latency,lag=args.lag,names=categories)
         for k,v in detected_objects.items():
             result_df.loc[row.Index, k] = v
 
@@ -114,8 +134,80 @@ if __name__ == "__main__":
 	TO RUN hebafer/object-detection:latest
 	CMD "yolov3_detect.py",
 	    "--dataset=voc",
+	    "--model=yolov3"
 	    "--latency=0.05",
-	    "--lag=100"
+	    "--lag=100",
+	    "--tasks=1 2 3 4"
 	INTO result;
 	'''
     inference()
+=======
+	parser = argparse.ArgumentParser(allow_abbrev=False)
+	parser.add_argument("--dataset", type=str, required=False)
+	return parser
+
+if __name__ == "__main__":
+	parser = build_argument_parser()
+	args, _ = parser.parse_known_args()
+
+	select_input = os.getenv("SQLFLOW_TO_RUN_SELECT")
+	output = os.getenv("SQLFLOW_TO_RUN_INTO")
+	output_tables = output.split(',')
+	datasource = os.getenv("SQLFLOW_DATASOURCE")
+
+	assert len(output_tables) == 1, "The output tables shouldn't be null and can contain only one."
+
+	print("Connecting to database...")
+	url = convertDSNToRfc1738(datasource, args.dataset)
+	engine = create_engine(url)
+
+	print("Printing result from SELECT statement as DataFrame...")
+	input_md = md.read_sql(
+		sql=select_input,
+		con=engine)
+	input_md.execute()
+	print(input_md)
+
+	image_dir = os.path.abspath('/opt/sqlflow/datasets/coco/test/test2017')
+	input_md['file_name'] = image_dir + "/" + input_md['file_name'].astype(str)
+
+	categories = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck',
+               'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench',
+               'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe',
+               'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard',
+               'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard',
+               'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl',
+               'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza',
+               'donut', 'cake', 'chair', 'couch', 'potted plant', 'bed', 'dining table', 'toilet',
+               'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven',
+               'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair dryer', 'toothbrush']
+
+	result_df = input_md.reindex(
+		columns=['id', 'file_name'] + categories
+	).fillna(0).to_pandas()
+
+	# Collect Model
+	model = torch.hub.load('ultralytics/yolov3', 'yolov3', verbose=False)
+
+	# Retrieve Images
+	imgs = result_df['file_name'].tolist()
+
+	# Inference on all the images
+	results = model(imgs[:])
+	result_list = results.pandas().xyxy[:]
+
+	#Iterate to collect confidence and class_names
+	for i, value in enumerate(result_list):
+		value = value.groupby(["name"], as_index=False).max()
+		dict = pd.Series(value.confidence.values, index=value.name).to_dict()
+		for k, v in dict.items():
+			result_df.loc[i, k] = v
+
+	print("Persist the statement into the table {}".format(output_tables[0]))
+	result_table = result_df.to_sql(
+		name=output_tables[0],
+		con=engine,
+		index=False
+	)
+	print(result_table)
+>>>>>>> pytorch/yolov3
