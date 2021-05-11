@@ -1,12 +1,11 @@
 import os
 import argparse
 import mars.dataframe as md
-import pandas as pd
 import MySQLdb
 from run_io.db_adapter import convertDSNToRfc1738
 from sqlalchemy import create_engine
 
-import numpy as np
+import random
 from PIL import Image
 import torch
 import numpy as np
@@ -15,11 +14,11 @@ import time
 
 def build_argument_parser():
 	parser = argparse.ArgumentParser(allow_abbrev=False)
-	parser.add_argument("--dataset", type=str, required=False)
+	parser.add_argument("--dataset", type=str, required=False, default='coco')
 	parser.add_argument("--model", type=str, required=False,default='yolov3')
-	parser.add_argument("--latency", type=float,required=False)
-	parser.add_argument("--lag", type=int, required=False)
-	parser.add_argument("--tasks", type=str,required=False)
+	parser.add_argument("--latency", type=float,required=True)
+	parser.add_argument("--lag", type=int, required=True)
+	parser.add_argument("--tasks", type=str,required=True)
 	return parser
 
 # Inference
@@ -40,11 +39,12 @@ def detect(model,image_path,tasks,latency,lag,count=0,names=[]):
 		# Save results into files in the format of: class_index x y w h
 		for *xyxy, conf, cls in reversed(pred):
 			count += 1
-			print(cls)
 			cls = int(cls.item())
 			if cls in tasks:
 				if count % lag == 0:
-					cls = np.random.sample(names)
+					print("lag!\n")
+					print("names: ", names)
+					cls = names.index(random.choice(names))
 				if names[cls] not in ans.keys():
 					ans[names[cls]] = conf.item()
 				else:
@@ -96,9 +96,6 @@ def inference():
 	image_dir = os.path.abspath('../datasets/coco/test/test2017')
 	input_md['file_name'] = image_dir + "/" + input_md['file_name'].astype(str)
 
-	# image_dir = os.path.abspath('/opt/sqlflow/datasets/voc_simple/test/JPEGImages')
-	# input_md['file_name'] = image_dir + "/" + input_md['file_name'].astype(str)
-
 	categories = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', \
 			'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench', \
 			'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', \
@@ -110,7 +107,8 @@ def inference():
 			'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven', \
 			'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair dryer','toothbrush']
 	
-	print(input_md[:].values)
+	print(input_md.index)
+
 	result_df = input_md.reindex(
 		columns = ['image_id','file_name'] + categories
 	).fillna(0).to_pandas()

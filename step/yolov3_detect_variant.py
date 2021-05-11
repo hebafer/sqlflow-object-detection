@@ -1,11 +1,10 @@
 import os
 import argparse
 import mars.dataframe as md
-import pandas as pd
 from run_io.db_adapter import convertDSNToRfc1738
 from sqlalchemy import create_engine
 
-import numpy as np
+from random import choice
 from PIL import Image
 import torch
 import time
@@ -40,7 +39,7 @@ def detect(model,image_path,tasks,latency,lag,count=0,names=[]):
 			cls = int(cls.item())
 			if cls in tasks:
 				if count % lag == 0:
-					cls = np.random.sample(names)
+					cls = names.index(choice(names))
 				if names[cls] not in ans.keys():
 					ans[names[cls]] = conf.item()
 				else:
