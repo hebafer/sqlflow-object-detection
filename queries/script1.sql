@@ -1,6 +1,6 @@
 SELECT * FROM coco.`images`
-ORDER BY `images`.`id`  ASC
-LIMIT 150
+ORDER BY `images`.`image_id`  ASC
+LIMIT 10
 TO RUN hebafer/yolov3-sqlflow:latest
 CMD "yolov3_detect_variant.py",
     "--dataset=coco",
