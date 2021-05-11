@@ -104,7 +104,8 @@ def inference():
 	result_table = result_df.to_sql(
 		name=output_tables[0],
 		con=engine,
-		index=False
+		index=False,
+		if_exists='append'
 	)
 
 if __name__ == "__main__":

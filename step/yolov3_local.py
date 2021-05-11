@@ -40,6 +40,7 @@ def detect(model,image_path,tasks,latency,lag,count=0,names=[]):
 		# Save results into files in the format of: class_index x y w h
 		for *xyxy, conf, cls in reversed(pred):
 			count += 1
+			print(cls)
 			cls = int(cls.item())
 			if cls in tasks:
 				if count % lag == 0:
@@ -60,7 +61,7 @@ def inference():
 	# docker run --name=sqlflow-mysql --rm -d -p 3306:3306 hebafer/sqlflow-mysql:1.0.0
 	select_input = """
 				SELECT * FROM coco.images
-				ORDER BY images.id  ASC
+				ORDER BY images.image_id  ASC
 				LIMIT 100
 				"""
 	output = "result"
@@ -109,6 +110,7 @@ def inference():
 			'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven', \
 			'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair dryer','toothbrush']
 	
+	print(input_md[:].values)
 	result_df = input_md.reindex(
 		columns = ['image_id','file_name'] + categories
 	).fillna(0).to_pandas()
