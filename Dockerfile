@@ -1,13 +1,13 @@
-FROM sqlflow/sqlflow:step
+FROM hebafer/sqlflow-step:latest
 
 RUN apt-get clean && apt-get update && \
-    apt-get -qq install -y libmysqld-dev libmysqlclient-dev ffmpeg libsm6 libxext6
+    apt-get -qq install -y libmariadbd-dev libmariadbclient-dev ffmpeg libsm6 libxext6
 
 ADD requirements.txt /
 
 COPY datasets/ /opt/sqlflow/datasets/
 
-RUN  pip3 install --upgrade pip && pip3 install --no-cache-dir -r /requirements.txt && rm -rf /requirements.txt
+RUN  pip3 install --no-cache-dir -r /requirements.txt && rm -rf /requirements.txt
 
 ADD /step /opt/sqlflow/run
 

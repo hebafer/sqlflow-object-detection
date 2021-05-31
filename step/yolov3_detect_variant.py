@@ -90,7 +90,7 @@ def inference():
     input_table = extract_tables(select_input)[0]
     # Initalize result_df depending if we read from coco.images or an intermediate table
     if input_table in ['images', "`images`"]:
-        image_dir = os.path.abspath('/opt/sqlflow/datasets/coco/test/test2017')
+        image_dir = os.path.abspath('/datasets/coco/test/test2017')
         input_df['file_name'] = image_dir + "/" + \
             input_df['file_name'].astype(str)
         result_df = input_df.reindex(

@@ -39,7 +39,7 @@ if __name__ == "__main__":
     input_md.execute()
     print(input_md)
 
-    image_dir = os.path.abspath('/opt/sqlflow/datasets/coco/test/test2017')
+    image_dir = os.path.abspath('/datasets/coco/test/test2017')
     input_md['file_name'] = image_dir + "/" + input_md['file_name'].astype(str)
 
     categories = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck',
