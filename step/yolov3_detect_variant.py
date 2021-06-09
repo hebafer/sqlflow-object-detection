@@ -10,16 +10,12 @@ from PIL import Image
 import torch
 import time
 
-
 def build_argument_parser():
     parser = argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument("--model_index", type=int, required=True)
-
     return parser
 
 # Inference
-
-
 def detect(model, image_path, tasks, latency, accuracy, count=0, names=[]):
 
     # Images
@@ -53,7 +49,7 @@ def inference():
     args, _ = parser.parse_known_args()
 
     # Load model parameters
-    query_parameters = pd.read_csv('./datasets/model_config_task.csv', index_col='index').loc[(args.model_index)]
+    query_parameters = pd.read_csv('/opt/sqlflow/datasets/model_config_task.csv', index_col='index').loc[(args.model_index)]
     dataset = query_parameters.dataset
     model_name = query_parameters.model
     latency = int(query_parameters.latency)
