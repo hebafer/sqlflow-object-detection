@@ -50,6 +50,7 @@ def inference():
 
     # Load model parameters
     query_parameters = pd.read_csv('/datasets/model_config_task.csv', index_col='index').loc[(args.experiment_index)]
+    print("Query parameters...")
     print(query_parameters)
 
     dataset = query_parameters.dataset
@@ -103,7 +104,7 @@ def inference():
 
     # Model
     count = 0
-    model = torch.hub.load(model_name, pretrained=True,
+    model = torch.hub.load('ultralytics/yolov3', model_name, pretrained=True,
                            force_reload=True).autoshape()  # for PIL/cv2/np inputs and NMS
 
     # model inference
