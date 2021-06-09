@@ -12,7 +12,7 @@ import time
 
 def build_argument_parser():
     parser = argparse.ArgumentParser(allow_abbrev=False)
-    parser.add_argument("--model_index", type=int, required=True)
+    parser.add_argument("--experiment_index", type=int, required=True)
     return parser
 
 # Inference
@@ -49,7 +49,9 @@ def inference():
     args, _ = parser.parse_known_args()
 
     # Load model parameters
-    query_parameters = pd.read_csv('/opt/sqlflow/datasets/model_config_task.csv', index_col='index').loc[(args.model_index)]
+    query_parameters = pd.read_csv('/datasets/model_config_task.csv', index_col='index').loc[(args.experiment_index)]
+    print(query_parameters)
+
     dataset = query_parameters.dataset
     model_name = query_parameters.model
     latency = int(query_parameters.latency)
@@ -101,7 +103,7 @@ def inference():
 
     # Model
     count = 0
-    model = torch.hub.load('ultralytics/yolov3', model_name, pretrained=True,
+    model = torch.hub.load(model_name, pretrained=True,
                            force_reload=True).autoshape()  # for PIL/cv2/np inputs and NMS
 
     # model inference
