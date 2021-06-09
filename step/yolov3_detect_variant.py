@@ -13,17 +13,14 @@ import time
 
 def build_argument_parser():
     parser = argparse.ArgumentParser(allow_abbrev=False)
-    parser.add_argument("--dataset", type=str, required=False, default='coco')
-    parser.add_argument("--model", type=str, required=False, default='yolov3')
-    parser.add_argument("--latency", type=float, required=True)
-    parser.add_argument("--lag", type=int, required=True)
-    parser.add_argument("--tasks", type=str, required=True)
+    parser.add_argument("--model_index", type=int, required=True)
+
     return parser
 
 # Inference
 
 
-def detect(model, image_path, tasks, latency, lag, count=0, names=[]):
+def detect(model, image_path, tasks, latency, accuracy, count=0, names=[]):
 
     # Images
     img = Image.open(image_path)
@@ -42,7 +39,7 @@ def detect(model, image_path, tasks, latency, lag, count=0, names=[]):
             count += 1
             cls = int(cls.item())
             if cls in tasks:
-                if count % lag == 0:
+                if count % accuracy == 0:
                     cls = names.index(choice(names))
                 if names[cls] not in ans.keys():
                     ans[names[cls]] = conf.item()
@@ -54,8 +51,15 @@ def detect(model, image_path, tasks, latency, lag, count=0, names=[]):
 def inference():
     parser = build_argument_parser()
     args, _ = parser.parse_known_args()
-    args.tasks = [int(t) for t in args.tasks.split(',')]
 
+    # Load model parameters
+    query_parameters = pd.read_csv('./datasets/model_config_task.csv', index_col='index').loc[(args.model_index)]
+    dataset = query_parameters.dataset
+    model_name = query_parameters.model
+    latency = int(query_parameters.latency)
+    accuracy = int(query_parameters.accuracy)
+    tasks = [int(t) for t in query_parameters.tasks.strip('][').split(' ')]
+    
     select_input = os.getenv("SQLFLOW_TO_RUN_SELECT")
     output = os.getenv("SQLFLOW_TO_RUN_INTO")
     output_tables = output.split(',')
@@ -66,7 +70,7 @@ def inference():
     assert output_tables != 'images', "The output table should be different than the original images table."
 
     print("Connecting to database...")
-    url = convertDSNToRfc1738(datasource, args.dataset)
+    url = convertDSNToRfc1738(datasource, query_parameters.dataset)
     engine = create_engine(url)
 
     categories = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck',
@@ -101,13 +105,13 @@ def inference():
 
     # Model
     count = 0
-    model = torch.hub.load('ultralytics/yolov3', args.model, pretrained=True,
+    model = torch.hub.load('ultralytics/yolov3', model_name, pretrained=True,
                            force_reload=True).autoshape()  # for PIL/cv2/np inputs and NMS
 
     # model inference
     for row in result_df.itertuples():
-        count, detected_objects = detect(model, row.file_name, tasks=args.tasks,
-                                         latency=args.latency, lag=args.lag, count=count, names=categories)
+        count, detected_objects = detect(model, row.file_name, tasks=tasks,
+                                         latency=latency, accuracy=accuracy, count=count, names=categories)
 
         for k, v in detected_objects.items():
             result_df.loc[row.Index, k] = v
@@ -132,7 +136,7 @@ if __name__ == "__main__":
         "--dataset=coco",
         "--model=yolov3"
         "--latency=0.05",
-        "--lag=100",
+        "--accuracy=100",
         "--tasks=1,2,3,4,5"
     INTO result;
     '''
