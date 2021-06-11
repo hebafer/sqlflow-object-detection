@@ -49,7 +49,7 @@ def inference():
     args, _ = parser.parse_known_args()
 
     # Load model parameters
-    query_parameters = pd.read_csv('/datasets/model_config_task.csv', index_col='index').loc[(args.experiment_index)]
+    query_parameters = pd.read_csv('/opt/sqlflow/datasets/model_config_task.csv', index_col='index').loc[(args.experiment_index)]
     print("Query parameters...")
     print(query_parameters)
 
