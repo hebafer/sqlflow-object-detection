@@ -58,7 +58,8 @@ def inference():
     latency = int(query_parameters.latency)
     accuracy = int(query_parameters.accuracy)
     tasks = [int(t) for t in query_parameters.tasks.strip('][').split(' ')]
-    
+    image_dir = query_parameters.image_dir
+
     select_input = os.getenv("SQLFLOW_TO_RUN_SELECT")
     output = os.getenv("SQLFLOW_TO_RUN_INTO")
     output_tables = output.split(',')
@@ -93,8 +94,8 @@ def inference():
     input_table = extract_tables(select_input)[0]
     # Initalize result_df depending if we read from coco.images or an intermediate table
     if input_table in ['images', "`images`"]:
-        image_dir = os.path.abspath('/datasets/coco/test/test2017')
-        input_df['file_name'] = image_dir + "/" + \
+        path = os.path.abspath(image_dir)
+        input_df['file_name'] = path + "/" + \
             input_df['file_name'].astype(str)
         result_df = input_df.reindex(
             columns=['image_id', 'file_name'] + categories
