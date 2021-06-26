@@ -128,7 +128,7 @@ if __name__ == "__main__":
     '''
     Command:
     %%sqlflow
-    DROP TABLE IF EXISTS coco.result;
+    DROP TABLE IF EXISTS coco_val.result;
     SELECT * FROM coco_val.images
     TO RUN hebafer/ssd-sqlflow:latest
     CMD "ssd_detect_variant.py",
