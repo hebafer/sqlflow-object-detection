@@ -77,7 +77,7 @@ def inference():
     assert output_tables != 'images', "The output table should be different than the original images table."
 
     print("Connecting to database...")
-    url = convertDSNToRfc1738(datasource, query_parameters.dataset)
+    url = convertDSNToRfc1738(datasource, dataset)
     engine = create_engine(url)
 
     print("Printing result from SELECT statement as DataFrame...")
@@ -100,7 +100,7 @@ def inference():
         result_df = input_df
 
     # Retrieve model
-    model = torch.hub.load('NVIDIA/DeepLearningExamples:torchhub', 'nvidia_ssd')
+    model = torch.hub.load('NVIDIA/DeepLearningExamples:torchhub', model_name)
     utils = torch.hub.load('NVIDIA/DeepLearningExamples:torchhub', 'nvidia_ssd_processing_utils')
     
     model.to('cuda')
@@ -109,8 +109,8 @@ def inference():
     # model inference
     count = 0
     for row in result_df.itertuples():
-        count, detected_objects = detect(model, utils, row.file_name, tasks=args.tasks,
-                                         latency=args.latency, accuracy=args.accuracy, count=count, names=categories)
+        count, detected_objects = detect(model, utils, row.file_name, tasks=tasks,
+                                         latency=latency, accuracy=accuracy, count=count, names=categories)
 
         for k, v in detected_objects.items():
             result_df.loc[row.Index, k] = v
