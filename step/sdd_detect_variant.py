@@ -6,43 +6,50 @@ from run_io.extract_table_names import extract_tables
 from sqlalchemy import create_engine
 
 from random import choice
-from PIL import Image
 import torch
 import time
+
+categories = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck',
+                'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench',
+                'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe',
+                'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard',
+                'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard',
+                'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl',
+                'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza',
+                'donut', 'cake', 'chair', 'couch', 'potted plant', 'bed', 'dining table', 'toilet',
+                'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven',
+                'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair dryer', 'toothbrush']
 
 def build_argument_parser():
     parser = argparse.ArgumentParser(allow_abbrev=False)
     parser.add_argument("--experiment_index", type=int, required=True)
     return parser
 
-# Inference
-def detect(model, image_path, tasks, latency, accuracy, count=0, names=[]):
+def detect(model, utils, image_path, tasks, latency, accuracy, count=0, names=[]):
 
-    # Images
-    img = Image.open(image_path)
+    inputs = [utils.prepare_input(image_path)]
+    tensor = utils.prepare_tensor(inputs)
 
-    prediction = model(img, size=640)  # includes NMS'
-    pred = prediction.pred[0]
-    img = prediction.imgs[0]
+    with torch.no_grad():
+        detections_batch = model(tensor)
 
-    ans = {}
-    if pred is not None:
-        gn = torch.tensor(img.shape)[[1, 0, 1, 0]]  # normalization gain whwh
-        time.sleep(latency)
+        results_per_input = utils.decode_results(detections_batch)
+        pred = [utils.pick_best(results, 0.40) for results in results_per_input]
+        ans = {}
 
-        # Save results into files in the format of: class_index x y w h
-        for *xyxy, conf, cls in reversed(pred):
-            count += 1
-            cls = int(cls.item())
-            if cls in tasks:
-                if count % accuracy == 0:
-                    cls = names.index(choice(names))
-                if names[cls] not in ans.keys():
-                    ans[names[cls]] = conf.item()
-                else:
-                    ans[names[cls]] = max(conf.item(), ans[names[cls]])
+        if pred is not None:
+            time.sleep(latency)
+            bboxes, classes, confidences = pred[0]
+            for idx in range(len(bboxes)):
+                cls = classes[idx]
+                if cls in tasks:
+                    #if count % accuracy == 0:
+                    #    cls = names.index(choice(names))
+                    if names[cls-1] not in ans.keys():
+                        ans[names[cls-1]] = confidences[idx]
+                    else:
+                        ans[names[cls-1]] = max(confidences[idx], ans[names[cls-1]])
     return count, ans
-
 
 def inference():
     parser = build_argument_parser()
@@ -73,17 +80,6 @@ def inference():
     url = convertDSNToRfc1738(datasource, query_parameters.dataset)
     engine = create_engine(url)
 
-    categories = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck',
-                  'boat', 'traffic_light', 'fire_hydrant', 'stop_sign', 'parking_meter', 'bench',
-                  'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe',
-                  'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard',
-                  'sports_ball', 'kite', 'baseball_bat', 'baseball_glove', 'skateboard', 'surfboard',
-                  'tennis_racket', 'bottle', 'wine_glass', 'cup', 'fork', 'knife', 'spoon', 'bowl',
-                  'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot_dog', 'pizza',
-                  'donut', 'cake', 'chair', 'couch', 'potted_plant', 'bed', 'dining_table', 'toilet',
-                  'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell_phone', 'microwave', 'oven',
-                  'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy_bear', 'hair_dryer', 'toothbrush']
-
     print("Printing result from SELECT statement as DataFrame...")
     input_df = pd.read_sql(
         sql=select_input,
@@ -103,15 +99,18 @@ def inference():
     else:
         result_df = input_df
 
-    # Model
-    count = 0
-    model = torch.hub.load('ultralytics/yolov3', model_name, pretrained=True,
-                           force_reload=True).autoshape()  # for PIL/cv2/np inputs and NMS
-
+    # Retrieve model
+    model = torch.hub.load('NVIDIA/DeepLearningExamples:torchhub', 'nvidia_ssd')
+    utils = torch.hub.load('NVIDIA/DeepLearningExamples:torchhub', 'nvidia_ssd_processing_utils')
+    
+    model.to('cuda')
+    model.eval()
+    
     # model inference
+    count = 0
     for row in result_df.itertuples():
-        count, detected_objects = detect(model, row.file_name, tasks=tasks,
-                                         latency=latency, accuracy=accuracy, count=count, names=categories)
+        count, detected_objects = detect(model, utils, row.file_name, tasks=args.tasks,
+                                         latency=args.latency, accuracy=args.accuracy, count=count, names=categories)
 
         for k, v in detected_objects.items():
             result_df.loc[row.Index, k] = v
@@ -123,21 +122,17 @@ def inference():
         index=False,
         if_exists='replace'
     )
-
+    print(result_df)
 
 if __name__ == "__main__":
     '''
     Command:
     %%sqlflow
     DROP TABLE IF EXISTS coco.result;
-    SELECT * FROM coco.annotations
-    TO RUN hebafer/yolov3-sqlflow:latest
-    CMD "yolov3_detect_variant.py",
-        "--dataset=coco",
-        "--model=yolov3"
-        "--latency=0.05",
-        "--accuracy=100",
-        "--tasks=1,2,3,4,5"
+    SELECT * FROM coco_val.images
+    TO RUN hebafer/ssd-sqlflow:latest
+    CMD "ssd_detect_variant.py",
+        "--experiment_index=1"
     INTO result;
     '''
     inference()
