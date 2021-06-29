@@ -16,7 +16,7 @@ def build_argument_parser():
     return parser
 
 # Inference
-def detect(model, image_path, tasks, latency, accuracy, count=0, names=[]):
+def detect(model, image_path, tasks, latency, lag, count=0, names=[]):
 
     # Images
     img = Image.open(image_path)
@@ -28,6 +28,7 @@ def detect(model, image_path, tasks, latency, accuracy, count=0, names=[]):
     ans = {}
     if pred is not None:
         gn = torch.tensor(img.shape)[[1, 0, 1, 0]]  # normalization gain whwh
+        latency = latency/1000
         time.sleep(latency)
 
         # Save results into files in the format of: class_index x y w h
@@ -35,7 +36,7 @@ def detect(model, image_path, tasks, latency, accuracy, count=0, names=[]):
             count += 1
             cls = int(cls.item())
             if cls in tasks:
-                if count % accuracy == 0:
+                if count % lag == 0:
                     cls = names.index(choice(names))
                 if names[cls] not in ans.keys():
                     ans[names[cls]] = conf.item()
@@ -49,16 +50,26 @@ def inference():
     args, _ = parser.parse_known_args()
 
     # Load model parameters
-    query_parameters = pd.read_csv('/opt/sqlflow/datasets/model_config_task.csv', index_col='index').loc[(args.experiment_index)]
-    print("Query parameters...")
-    print(query_parameters)
+    dataset = 'coco_val'
+    latency = 0
+    lag = 1e6
+    tasks = range(80)
+    image_dir = '/datasets/coco/val/val2017'
+    if args.experiment_index == 0:
+        model_name = 'yolov3'
+    elif args.experiment_index == 201:
+        model_name = 'yolov3_tiny'
+    else:
+        query_parameters = pd.read_csv('/opt/sqlflow/datasets/model_config_task.csv', index_col='index').loc[(args.experiment_index)]
+        # print("Query parameters...")
+        # print(query_parameters)
+        # dataset = query_parameters.dataset
+        # model_name = query_parameters.model
+        latency = int(query_parameters.latency)//2
+        lag = int(query_parameters.lag)
+        tasks = [int(t) for t in query_parameters.tasks.strip('][').split(' ')]
+        image_dir = query_parameters.image_dir
 
-    dataset = query_parameters.dataset
-    model_name = query_parameters.model
-    latency = int(query_parameters.latency)
-    accuracy = int(query_parameters.accuracy)
-    tasks = [int(t) for t in query_parameters.tasks.strip('][').split(' ')]
-    image_dir = query_parameters.image_dir
 
     select_input = os.getenv("SQLFLOW_TO_RUN_SELECT")
     output = os.getenv("SQLFLOW_TO_RUN_INTO")
@@ -70,19 +81,19 @@ def inference():
     assert output_tables != 'images', "The output table should be different than the original images table."
 
     print("Connecting to database...")
-    url = convertDSNToRfc1738(datasource, query_parameters.dataset)
+    url = convertDSNToRfc1738(datasource, dataset)
     engine = create_engine(url)
 
     categories = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck',
-                  'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench',
+                  'boat', 'traffic_light', 'fire_hydrant', 'stop_sign', 'parking_meter', 'bench',
                   'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe',
                   'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard',
-                  'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard',
-                  'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl',
-                  'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza',
-                  'donut', 'cake', 'chair', 'couch', 'potted plant', 'bed', 'dining table', 'toilet',
-                  'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone', 'microwave', 'oven',
-                  'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear', 'hair dryer', 'toothbrush']
+                  'sports_ball', 'kite', 'baseball_bat', 'baseball_glove', 'skateboard', 'surfboard',
+                  'tennis_racket', 'bottle', 'wine_glass', 'cup', 'fork', 'knife', 'spoon', 'bowl',
+                  'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot_dog', 'pizza',
+                  'donut', 'cake', 'chair', 'couch', 'potted_plant', 'bed', 'dining_table', 'toilet',
+                  'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell_phone', 'microwave', 'oven',
+                  'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy_bear', 'hair_dryer', 'toothbrush']
 
     print("Printing result from SELECT statement as DataFrame...")
     input_df = pd.read_sql(
@@ -93,7 +104,7 @@ def inference():
     # Retrieve input table
     input_table = extract_tables(select_input)[0]
     # Initalize result_df depending if we read from coco.images or an intermediate table
-    if input_table in ['images', "`images`"]:
+    if input_table in ['images', "`images`",'coco_val']:
         path = os.path.abspath(image_dir)
         input_df['file_name'] = path + "/" + \
             input_df['file_name'].astype(str)
@@ -111,7 +122,7 @@ def inference():
     # model inference
     for row in result_df.itertuples():
         count, detected_objects = detect(model, row.file_name, tasks=tasks,
-                                         latency=latency, accuracy=accuracy, count=count, names=categories)
+                                         latency=latency, lag=lag, count=count, names=categories)
 
         for k, v in detected_objects.items():
             result_df.loc[row.Index, k] = v

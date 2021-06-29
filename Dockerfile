@@ -6,6 +6,7 @@ RUN apt-get clean && apt-get update && \
 ADD requirements.txt /
 
 COPY datasets/model_config_task.csv /opt/sqlflow/datasets/model_config_task.csv
+COPY datasets/model_config_task_all.csv /opt/sqlflow/datasets/model_config_task_all.csv
 
 RUN  pip3 install --no-cache-dir -r /requirements.txt && rm -rf /requirements.txt
 
