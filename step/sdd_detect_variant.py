@@ -5,6 +5,7 @@ from run_io.db_adapter import convertDSNToRfc1738
 from run_io.extract_table_names import extract_tables
 from sqlalchemy import create_engine
 
+import numpy as np
 from random import choice
 import torch
 import time
@@ -25,7 +26,7 @@ def build_argument_parser():
     parser.add_argument("--experiment_index", type=int, required=True)
     return parser
 
-def detect(model, utils, image_path, tasks, latency, accuracy, count=0, names=[]):
+def detect(model, utils, image_path, tasks, latency, percentage, count=0, names=[]):
 
     inputs = [utils.prepare_input(image_path)]
     tensor = utils.prepare_tensor(inputs)
@@ -43,8 +44,8 @@ def detect(model, utils, image_path, tasks, latency, accuracy, count=0, names=[]
             for idx in range(len(bboxes)):
                 cls = classes[idx]
                 if cls in tasks:
-                    #if count % accuracy == 0:
-                    #    cls = names.index(choice(names))
+                    if np.random.rand() > percentage:
+                        cls = names.index(choice(names))
                     if names[cls-1] not in ans.keys():
                         ans[names[cls-1]] = confidences[idx]
                     else:
@@ -63,7 +64,7 @@ def inference():
     dataset = query_parameters.dataset
     model_name = query_parameters.model
     latency = int(query_parameters.latency)
-    accuracy = int(query_parameters.accuracy)
+    percentage = query_parameters.mis_prediction_prop
     tasks = [int(t) for t in query_parameters.tasks.strip('][').split(' ')]
     image_dir = query_parameters.image_dir
 
@@ -110,7 +111,7 @@ def inference():
     count = 0
     for row in result_df.itertuples():
         count, detected_objects = detect(model, utils, row.file_name, tasks=tasks,
-                                         latency=latency, accuracy=accuracy, count=count, names=categories)
+                                         latency=latency, percentage=percentage, count=count, names=categories)
 
         for k, v in detected_objects.items():
             result_df.loc[row.Index, k] = v

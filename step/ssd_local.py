@@ -5,6 +5,7 @@ from run_io.db_adapter import convertDSNToRfc1738
 from run_io.extract_table_names import extract_tables
 from sqlalchemy import create_engine
 
+import numpy as np
 from random import choice
 import torch
 import time
@@ -25,7 +26,7 @@ def build_argument_parser():
     parser.add_argument("--dataset", type=str, required=False, default='coco')
     parser.add_argument("--model", type=str, required=False, default='nvidia_ssd')
     parser.add_argument("--latency", type=float, required=False)
-    parser.add_argument("--accuracy", type=int, required=True)
+    parser.add_argument("--accuracy", type=float, required=True)
     parser.add_argument("--tasks", type=str, required=True)
     return parser
 
@@ -47,14 +48,13 @@ def detect(model, utils, image_path, tasks, latency, accuracy, count=0, names=[]
             for idx in range(len(bboxes)):
                 cls = classes[idx]
                 if cls in tasks:
-                    #if count % accuracy == 0:
-                    #    cls = names.index(choice(names))
+                    if np.random.rand() > accuracy:
+                        cls = names.index(choice(names))
                     if names[cls-1] not in ans.keys():
                         ans[names[cls-1]] = confidences[idx]
                     else:
                         ans[names[cls-1]] = max(confidences[idx], ans[names[cls-1]])
     return count, ans
-
 
 def inference():
     parser = build_argument_parser()
